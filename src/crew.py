@@ -1,69 +1,48 @@
 from crewai import Agent, Crew, Process, Task
-from crewai.project import CrewBase, agent, crew, task
-
-from tools import (
-    StockPriceTool,
-    CompanyProfileTool,
-    FinancialRatiosTool,
-    MarketCapTool,
-    KeyMetricsTool,
-    StockScreenerTool,
-    SingleLineItemQueryTool,
-    WebpageReadingTool
-)
+from crewai.project import CrewBase, agent, crew, task, after_kickoff, before_kickoff
+from crewai_tools.tools.serper_dev_tool.serper_dev_tool import SerperDevTool
 
 
 @CrewBase
 class CrewaiFinAgent():
     """CrewaiFinAgent crew"""
 
+    @before_kickoff
+    def before_kickoff_function(self, inputs):
+        print(f"Before kickoff function with inputs: {inputs}")
+        return inputs
+
+    @after_kickoff
+    def after_kickoff_function(self, result):
+        print(f"After kickoff function with result: {result}")
+        return result
+
     @agent
-    def financial_data_agent(self) -> Agent:
+    def researcher(self) -> Agent:
         return Agent(
-            config=self.agents_config['financial_data_agent'],
+            config=self.agents_config['researcher'],
             verbose=True,
-            tools=[
-                StockPriceTool(),
-                CompanyProfileTool(),
-                FinancialRatiosTool(),
-                MarketCapTool(),
-                KeyMetricsTool(),
-                StockScreenerTool(),
-                SingleLineItemQueryTool()
-            ]
+            tools=[SerperDevTool()]
         )
 
     @agent
-    def web_scraping_agent(self) -> Agent:
+    def reporting_analyst(self) -> Agent:
         return Agent(
-            config=self.agents_config['web_scraping_agent'],
-            tools=[
-                WebpageReadingTool()
-            ]
-        )
-
-    @agent
-    def output_summarizing_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config['output_summarizing_agent'],
+            config=self.agents_config['reporting_analyst'],
+            verbose=True
         )
 
     @task
-    def gather_financial_data(self) -> Task:
+    def research_task(self) -> Task:
         return Task(
-            config=self.tasks_config['gather_financial_data']
+            config=self.tasks_config['research_task'],
         )
 
     @task
-    def gather_website_information(self) -> Task:
+    def reporting_task(self) -> Task:
         return Task(
-            config=self.tasks_config['gather_website_information']
-        )
-
-    @task
-    def summarize_findings(self) -> Task:
-        return Task(
-            config=self.tasks_config['summarize_findings']
+            config=self.tasks_config['reporting_task'],
+            output_file='output/report.md'  # This is the file that will be contain the final report.
         )
 
     # Define the supervisor agent separately to handle coordination
@@ -84,8 +63,7 @@ class CrewaiFinAgent():
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
-            process=Process.hierarchical,
-            manager_agent=self.supervisor_agent,
+            process=Process.sequential,
             memory=False,  # creates memory files in "CREWAI_STORAGE_DIR" folder
             verbose=True,  # necessary for memory
             # embedder={
